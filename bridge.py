@@ -90,9 +90,9 @@ class Handler(BaseHTTPRequestHandler):
                     bw.save(path, "PNG")
                     # Print command operates on the connected USB PT-P700.
                     cmd = ["ptouch-print", "--image", str(path)]
-                    if cut_mode == "autocut":
-                        cmd.append("--autocut")
-                    elif cut_mode == "chain":
+                    # Installed ptouch-print does not support --autocut.
+                    # Treat legacy autocut requests as normal printing.
+                    if cut_mode == "chain":
                         cmd.append("--chain")
                     if pad_mm:
                         cmd.extend(["--pad", str(round(pad_mm * 180 / 25.4))])
