@@ -9,6 +9,15 @@
 <div class="field full"><label for="labeltext">라벨 내용</label><textarea id="labeltext" rows="2">FPGA · Basys3</textarea></div>
 <div class="field"><label for="tape">테이프 폭</label><select id="tape"><option value="6">6 mm</option><option value="9">9 mm</option><option value="12">12 mm</option><option value="18">18 mm</option><option value="24" selected>24 mm</option></select></div>
 <div class="field"><label for="length">라벨 길이 (mm)</label><input id="length" type="number" min="25" max="300" value="75"></div>
+<div class="field"><label for="fontFamily">글꼴</label><select id="fontFamily">
+<option value="sans-serif">기본 고딕</option><option value="serif">명조</option><option value="monospace">고정폭</option>
+<option value="Arial, sans-serif">Arial (에어리얼)</option>
+<option value="Georgia, serif">Georgia (조지아)</option>
+<option value="Noto Sans KR, sans-serif">Noto Sans KR (노토 산스)</option>
+<option value="Noto Serif KR, serif">Noto Serif KR (노토 세리프)</option>
+<option value="Nanum Gothic, sans-serif">나눔고딕</option>
+<option value="Nanum Myeongjo, serif">나눔명조</option>
+</select></div>
 <div class="field"><label for="font">글자 크기: <output id="fontVal">32</output> px</label><input id="font" type="range" min="12" max="70" value="32"></div>
 <div class="field"><label for="alignText">정렬</label><select id="alignText"><option value="left">왼쪽</option><option value="center" selected>가운데</option><option value="right">오른쪽</option></select></div>
 <div class="field"><label for="marginLeft">왼쪽 글자 여백: <output id="marginLeftVal">2</output> mm</label><input id="marginLeft" type="range" min="0" max="20" step="0.5" value="2"></div>
@@ -50,7 +59,9 @@ function draw(){
   const lines=$('labeltext').value.split('\n').slice(0,4);
   const fontSize=Math.min(Number($('font').value),Math.max(1,Math.floor(usableH/lines.length)-3));
   const lineH=usableH/lines.length;
-  ctx.font=($('bold').checked?'bold ':'')+fontSize+'px sans-serif';
+  // Font selection affects both canvas preview and transmitted print bitmap.
+  const family=$('fontFamily').value;
+  ctx.font=($('bold').checked?'bold ':'')+fontSize+'px '+family;
   ctx.textBaseline='middle';
   const align=$('alignText').value;
   ctx.textAlign=align;
@@ -59,8 +70,9 @@ function draw(){
   lines.forEach((line,i)=>ctx.fillText(line,x,top+(i+0.5)*lineH,Math.max(1,usableW)));
   ctx.restore();
 }
-['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad'].forEach(id=>$(id).addEventListener('input',draw));
+['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad','fontFamily'].forEach(id=>$(id).addEventListener('input',draw));
 draw();
+if(document.fonts){document.fonts.ready.then(draw);}
 $('save').onclick=()=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='pt-p700-label.png';a.click()};
 $('print').onclick=async()=>{const s=$('status');s.textContent='Ubuntu 로컬 인쇄 서버에 연결 중...';try{const r=await fetch('http://127.0.0.1:8765/print',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tape_width_mm:Number($('tape').value),png:canvas.toDataURL('image/png'),cut_mode:$('cutMode').value,feed_pad_mm:Number($('feedPad').value)})});const j=await r.json();s.textContent=j.ok?'인쇄 명령을 전송했습니다.':'인쇄 실패: '+(j.error||r.status)}catch(e){s.textContent='로컬 인쇄 서버 연결 실패: '+e.message+' (Ubuntu에서 bridge.py 실행 여부 확인)'}};
 
