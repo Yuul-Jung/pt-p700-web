@@ -8,7 +8,7 @@ sudo apt update
 sudo apt install -y git cmake gettext libgd-dev libusb-1.0-0-dev python3-venv python3-pip
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
-git clone --depth 1 https://git.familie-radermacher.ch/linux/ptouch-print.git "$WORKDIR/ptouch-print"
+git clone https://git.familie-radermacher.ch/linux/ptouch-print.git "$WORKDIR/ptouch-print"
 cd "$WORKDIR/ptouch-print"
 ./compile.sh
 test -f build/ptouch-print
