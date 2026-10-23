@@ -68,6 +68,12 @@ class Handler(BaseHTTPRequestHandler):
             width = int(data["tape_width_mm"])
             if width not in HEIGHTS:
                 return self.reply(400, {"ok": False, "error": "Invalid tape width"})
+            cut_mode = data.get("cut_mode", "normal")
+            if cut_mode not in ("normal", "autocut", "chain"):
+                return self.reply(400, {"ok": False, "error": "Invalid cut mode"})
+            pad_mm = data.get("feed_pad_mm", 0)
+            if not isinstance(pad_mm, (int, float)) or isinstance(pad_mm, bool) or not (0 <= pad_mm <= 10):
+                return self.reply(400, {"ok": False, "error": "Invalid padding"})
             png = data["png"]
             if not isinstance(png, str) or not png.startswith("data:image/png;base64,"):
                 return self.reply(400, {"ok": False, "error": "PNG data URL required"})
@@ -82,8 +88,16 @@ class Handler(BaseHTTPRequestHandler):
                 with tempfile.TemporaryDirectory(prefix="pt-p700-") as td:
                     path = Path(td) / "label.png"
                     bw.save(path, "PNG")
+                    # Print command operates on the connected USB PT-P700.
+                    cmd = ["ptouch-print", "--image", str(path)]
+                    if cut_mode == "autocut":
+                        cmd.append("--autocut")
+                    elif cut_mode == "chain":
+                        cmd.append("--chain")
+                    if pad_mm:
+                        cmd.extend(["--pad", str(round(pad_mm * 180 / 25.4))])
                     result = subprocess.run(
-                        ["ptouch-print", "--image", str(path)],
+                        cmd,
                         capture_output=True, text=True, timeout=40
                     )
                     if result.returncode:
