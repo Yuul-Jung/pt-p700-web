@@ -41,3 +41,16 @@ GitHub에서 Settings → Pages → Build and deployment → Deploy from a branc
 GitHub Pages는 정적 파일만 서비스합니다. `bridge.py`는 반드시 프린터가 연결된 Ubuntu PC에서 별도로 실행해야 합니다. 브리지 포트를 외부에 공개하지 마세요. 브리지는 허용된 브라우저 Origin만 받습니다. 일부 브라우저에서는 HTTPS 페이지에서 로컬 HTTP 서버 연결에 대한 권한 승인이 요구되거나 차단될 수 있습니다. 실제 인쇄가 실패하면 `ptouch-print`와 USB 권한을 먼저 확인하세요. 실물 검증 완료 전에는 정상 인쇄를 보장하지 않습니다.
 
 본 코드는 LabelSis 소스를 복제하지 않았으며 `ptouch-print`는 별도 설치합니다.
+
+## 매번 터미널을 열지 않는 방법
+
+최초 설치가 끝난 뒤, **한 번만** 다음을 실행합니다.
+
+```bash
+cd ~/pt-p700-web
+bash enable-autostart.sh
+```
+
+이후 Ubuntu 사용자 로그인 시 로컬 인쇄 서버가 자동 실행됩니다. 웹페이지의 **USB · 인쇄 서버 연결 확인** 버튼으로 상태를 확인하고 인쇄하세요. 일반 GitHub Pages 웹사이트 자체는 OS의 드라이버를 설치하거나 서버를 시작할 권한이 없습니다.
+
+문제 해결: `systemctl --user status pt-p700-bridge.service` / 로그: `journalctl --user -u pt-p700-bridge.service -n 50`.
