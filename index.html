@@ -45,7 +45,12 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <option value="Nanum Gothic, sans-serif">나눔고딕</option>
 <option value="Nanum Myeongjo, serif">나눔명조</option>
 </select><span class="font-hint" id="fontStatus" role="status">선택한 글꼴이 미리보기에 적용됩니다.</span></div>
-<div class="field"><label for="font">글자 크기: <output id="fontVal">32</output> px</label><input id="font" type="range" min="12" max="70" value="32"></div>
+<div class="field"><label for="font">글자 크기: <output id="fontVal">32</output> px</label><input id="font" type="range" min="12" max="70" value="32"></div><div class="field"><label for="fitMode">자동 크기 맞춤</label><select id="fitMode"><option value="auto" selected>각 줄 자동 맞춤</option><option value="manual">수동</option></select></div>
+<div class="field"><label for="line1Size">1행 글자: <output id="line1SizeVal">42</output> px</label><input id="line1Size" type="range" min="6" max="80" value="42"></div>
+<div class="field"><label for="line1Width">1행 장평: <output id="line1WidthVal">100</output>%</label><input id="line1Width" type="range" min="50" max="150" value="100"></div>
+<div class="field"><label for="line2Size">2행 글자: <output id="line2SizeVal">27</output> px</label><input id="line2Size" type="range" min="6" max="80" value="27"></div>
+<div class="field"><label for="line2Width">2행 장평: <output id="line2WidthVal">100</output>%</label><input id="line2Width" type="range" min="50" max="150" value="100"></div>
+<div class="field full"><span id="fitStatus" class="font-hint" role="status">각 행의 글자 크기를 개별 조절합니다.</span></div>
 <div class="field"><label for="alignText">정렬</label><select id="alignText"><option value="left">왼쪽</option><option value="center" selected>가운데</option><option value="right">오른쪽</option></select></div>
 <div class="field"><label for="marginLeft">왼쪽 글자 여백: <output id="marginLeftVal">2</output> mm</label><input id="marginLeft" type="range" min="0" max="20" step="0.5" value="2"></div>
 <div class="field"><label for="marginRight">오른쪽 글자 여백: <output id="marginRightVal">2</output> mm</label><input id="marginRight" type="range" min="0" max="20" step="0.5" value="2"></div>
@@ -70,6 +75,11 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <div class="field"><label for="imageThreshold">흑백 임계값: <output id="imageThresholdVal">160</output></label><input id="imageThreshold" type="range" min="0" max="255" value="160"></div>
 <div class="field check"><label for="imageInvert">이미지 흑백 반전</label><input id="imageInvert" type="checkbox"></div>
 <div class="field"><button type="button" id="clearImage" class="secondary">이미지 제거</button></div>
+<div class="field full"><label for="ocrImage">이미지 속 문자 인식 (OCR)</label>
+<button id="ocrImage" type="button" class="secondary" disabled>이미지에서 한글·영문 추출</button>
+<span id="ocrStatus" class="font-hint" role="status">업로드된 이미지의 글자를 인식하여 편집 가능한 텍스트로 변환합니다.</span>
+<textarea id="ocrResult" rows="2" placeholder="문자 인식 결과를 검토하고 수정하세요."></textarea>
+<button type="button" id="applyOcr" class="secondary">추출 문자 → 라벨 내용에 적용</button></div>
 <p class="note full">원본 가로세로 비율을 유지합니다. 이미지의 X/Y는 라벨 왼쪽 위 기준이며 글자와 겹치면 마지막에 그려진 글자가 위에 표시됩니다. 이미지와 글자가 겹치지 않도록 위치를 조절하세요.</p>
 </div></section></div>
 <details class="card setup"><summary>Ubuntu Linux 전용 · 최초 USB 설치 안내 (필요한 경우에만 펼치기)</summary><div class="setup-content"><p>최초 설치 시 PT-P700 USB 연결 및 PLite 표시등 OFF를 확인하세요.</p><pre>git clone https://github.com/Yuul-Jung/pt-p700-web.git
@@ -128,6 +138,7 @@ function paintImage(ppm){
 function draw(){
   $('feedPadVal').textContent=$('feedPad').value;
   $('fontVal').textContent=$('font').value;
+  for(const id of ['line1Size','line1Width','line2Size','line2Width']) $(id+'Val').textContent=$(id).value;
   updateImageControls();
   const tape=Number($('tape').value),height=heights[tape];
   const length=Math.max(25,Math.min(300,Number($('length').value)||75));
@@ -145,20 +156,38 @@ function draw(){
   const top=Math.min(height,mt),bottom=Math.max(top,height-mb);
   const usableW=Math.max(0,right-left),usableH=Math.max(0,bottom-top);
   const lines=$('labeltext').value.split('\n').slice(0,4);
-  const fontSize=Math.min(Number($('font').value),Math.max(1,Math.floor(usableH/lines.length)-3));
-  const lineH=usableH/lines.length;
-  // Font selection affects both canvas preview and transmitted print bitmap.
-  const family=$('fontFamily').value;
-  ctx.font=($('bold').checked?'bold ':'')+fontSize+'px '+family;
+  const lineH=usableH/Math.max(1,lines.length);
+  const family=$('fontFamily').value,align=$('alignText').value;
+  const auto=$('fitMode').value==='auto';
   ctx.textBaseline='middle';
-  const align=$('alignText').value;
-  ctx.textAlign=align;
   ctx.save();ctx.beginPath();ctx.rect(left,top,usableW,usableH);ctx.clip();
-  let x=align==='center'?(left+right)/2:align==='right'?right:left;
-  lines.forEach((line,i)=>ctx.fillText(line,x,top+(i+0.5)*lineH,Math.max(1,usableW)));
+  const statuses=[];
+  lines.forEach((line,i)=>{
+    // 1행과 2행의 크기·장평을 각각 계산합니다.
+    // 3행 이상은 2행 설정을 재사용합니다.
+    const row=Math.min(i+1,2), preferred=Number($('line'+row+'Size').value);
+    const ratio=Number($('line'+row+'Width').value)/100;
+    let size=Math.min(preferred,Math.max(1,Math.floor(lineH*0.87)));
+    const measure=()=>{ctx.font=($('bold').checked?'bold ':'')+size+'px '+family;return ctx.measureText(line).width*ratio;};
+    let measured=measure();
+    if(auto&&measured>usableW&&usableW>0){
+      // 폭에 맞도록 글자 크기부터 낮추고, 극단적인 긴 문자열은 마지막에 장평 보정.
+      size=Math.max(6,Math.floor(size*usableW/measured));
+      measured=measure();
+      while(size>6&&measured>usableW){size--;measured=measure();}
+    }
+    const finalScale=auto&&measured>usableW&&measured>0?ratio*usableW/measured:ratio;
+    if(size<preferred)statuses.push(row+'행 '+size+'px');
+    if(!auto&&measured>usableW)statuses.push(row+'행 잘림 주의');
+    const x=align==='center'?(left+right)/2:align==='right'?right:left;
+    ctx.save();ctx.translate(x,0);ctx.scale(finalScale,1);ctx.textAlign=align;
+    ctx.fillText(line,0,top+(i+0.5)*lineH);
+    ctx.restore();
+  });
   ctx.restore();
+  $('fitStatus').textContent=statuses.length?statuses.join(' · '):'각 줄이 라벨 폭 안에 배치되었습니다.';
 }
-['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad'].forEach(id=>$(id).addEventListener('input',draw));
+['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad','fitMode','line1Size','line1Width','line2Size','line2Width'].forEach(id=>$(id).addEventListener('input',draw));
 $('fontFamily').addEventListener('change',async()=>{
   const family=$('fontFamily').value;
   $('fontStatus').textContent='글꼴 적용 중...';
@@ -191,6 +220,7 @@ $('imageFile').addEventListener('change',async event=>{
       throw Error('이미지 크기가 너무 큽니다.');
     }
     labelImage=img;
+    $('ocrImage').disabled=false;
     $('useImage').disabled=false;
     $('useImage').checked=true;
     $('imageStatus').textContent=file.name+' · '+img.naturalWidth+' × '+img.naturalHeight+' px';
@@ -200,9 +230,41 @@ $('imageFile').addEventListener('change',async event=>{
   }finally{URL.revokeObjectURL(url);}
 });
 $('clearImage').addEventListener('click',()=>{
-  labelImage=null;$('imageFile').value='';$('useImage').checked=false;$('useImage').disabled=true;
+  labelImage=null;$('ocrImage').disabled=true;$('imageFile').value='';$('useImage').checked=false;$('useImage').disabled=true;
   $('imageStatus').textContent='이미지가 제거되었습니다.';draw();
 });
+
+// Explicit opt-in OCR: image stays in browser, model files are fetched from CDN.
+$('ocrImage').addEventListener('click',async()=>{
+  if(!labelImage)return;
+  const button=$('ocrImage');
+  button.disabled=true;
+  $('ocrStatus').textContent='문자 인식 엔진을 불러오는 중...';
+  let worker=null;
+  try{
+    if(!window.Tesseract){
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement('script');
+        script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+        script.onload=resolve;
+        script.onerror=()=>reject(new Error('문자 인식 라이브러리를 불러오지 못했습니다.'));
+        document.head.appendChild(script);
+      });
+    }
+    worker=await Tesseract.createWorker('kor+eng');
+    $('ocrStatus').textContent='이미지 속 문자를 인식하는 중...';
+    const result=await worker.recognize(labelImage);
+    $('ocrResult').value=(result.data.text||'').trim();
+    $('ocrStatus').textContent=$('ocrResult').value?'인식 완료 · 결과를 확인 후 적용하세요.':'문자가 발견되지 않았습니다.';
+  }catch(err){$('ocrStatus').textContent='문자 인식 실패: '+err.message;}
+  finally{if(worker)await worker.terminate();button.disabled=!labelImage;}
+});
+$('applyOcr').addEventListener('click',()=>{
+  if(!$('ocrResult').value.trim())return;
+  $('labeltext').value=$('ocrResult').value.trim();
+  draw();
+});
+
 draw();
 if(document.fonts){document.fonts.ready.then(draw);}
 $('save').onclick=()=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='pt-p700-label.png';a.click()};
