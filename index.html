@@ -3,7 +3,7 @@
 body{font-size:14px}
 main{max-width:1440px}
 .card{min-width:0}
-.settings{grid-template-columns:minmax(0,1.9fr) minmax(340px,1fr);gap:14px;align-items:start}
+.settings{grid-template-columns:minmax(0,1.6fr) minmax(290px,1fr);gap:14px;align-items:start}.image-card{grid-column:1/-1}
 .form-grid{gap:12px 18px;align-items:start}
 .field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .field label{font-size:13px;line-height:1.3;margin:0}
@@ -23,7 +23,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .preview-row{gap:16px}
 .setup-content pre{overflow-x:auto}
 @media(max-width:1050px){.settings{grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr)}}
-@media(max-width:850px){.settings{grid-template-columns:1fr}.usb-actions button{flex:0 1 180px}}
+@media(max-width:850px){.settings{grid-template-columns:1fr}.usb-actions button{flex:0 1 180px}.image-card{grid-column:auto}}
 @media(max-width:520px){.form-grid{grid-template-columns:1fr}.usb-actions button{flex:1 1 125px}.actions{flex:1 1 auto}.preview-image canvas{max-width:100%}}
 </style></head><body>
 <header><h1>Brother PT-P700 · Web Label Studio</h1><p>Ubuntu Linux(우분투 리눅스) 전용 USB 연결 버전 · 웹 라벨 편집기</p></header>
@@ -59,21 +59,82 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <p class="note full">추가 빈 테이프 0mm 권장 · 기계적인 선행 여백은 별도입니다. 연속 인쇄는 최종 절단이 보류될 수 있습니다.</p>
 </div><hr style="border:0;border-top:1px solid #e0e6ef;margin:10px 0">
 <div class="minitip">USB 연결 상태</div><p class="status usb-status" id="usbstatus" role="status">연결 상태: 확인 준비 중</p><div class="usb-actions"><button type="button" class="secondary" id="checkusb">연결 다시 확인</button><button type="button" class="secondary" id="testprint">테스트 인쇄</button></div>
-</section></div>
+</section>
+<section class="card image-card"><h2>이미지 · 로고</h2><div class="form-grid">
+<div class="field full"><label for="imageFile">이미지 업로드 (PNG / JPG / WebP)</label><input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp"><span id="imageStatus" class="font-hint" role="status">라벨에 포함할 로고나 아이콘을 선택하세요.</span></div>
+<div class="field check"><label for="useImage">이미지 표시</label><input id="useImage" type="checkbox" disabled></div>
+<div class="field"><label for="imageScale">이미지 너비: <output id="imageScaleVal">30</output> mm</label><input id="imageScale" type="range" min="2" max="100" step="1" value="30"></div>
+<div class="field"><label for="imageX">가로 위치: <output id="imageXVal">3</output> mm</label><input id="imageX" type="range" min="0" max="300" step="0.5" value="3"></div>
+<div class="field"><label for="imageY">세로 위치: <output id="imageYVal">2</output> mm</label><input id="imageY" type="range" min="0" max="24" step="0.5" value="2"></div>
+<div class="field"><label for="imageRotation">이미지 회전</label><select id="imageRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></div>
+<div class="field"><label for="imageThreshold">흑백 임계값: <output id="imageThresholdVal">160</output></label><input id="imageThreshold" type="range" min="0" max="255" value="160"></div>
+<div class="field check"><label for="imageInvert">이미지 흑백 반전</label><input id="imageInvert" type="checkbox"></div>
+<div class="field"><button type="button" id="clearImage" class="secondary">이미지 제거</button></div>
+<p class="note full">원본 가로세로 비율을 유지합니다. 이미지의 X/Y는 라벨 왼쪽 위 기준이며 글자와 겹치면 마지막에 그려진 글자가 위에 표시됩니다. 이미지와 글자가 겹치지 않도록 위치를 조절하세요.</p>
+</div></section></div>
 <details class="card setup"><summary>Ubuntu Linux 전용 · 최초 USB 설치 안내 (필요한 경우에만 펼치기)</summary><div class="setup-content"><p>최초 설치 시 PT-P700 USB 연결 및 PLite 표시등 OFF를 확인하세요.</p><pre>git clone https://github.com/Yuul-Jung/pt-p700-web.git
 cd pt-p700-web
 bash install-ubuntu.sh
 bash enable-autostart.sh</pre><p>설치 및 로그인 자동 실행 등록 후에는 일반 인쇄에 터미널이 필요하지 않습니다. USB 드라이버의 설치와 서버 프로그램 변경은 웹페이지만으로 수행할 수 없습니다.</p></div></details>
 </main><script>
 const $=id=>document.getElementById(id), heights={6:32,9:48,12:70,18:112,24:128},canvas=$('preview'),ctx=canvas.getContext('2d');
+// Local image layer: never uploads the original file to a remote service.
+let labelImage = null;
+const imgCanvas = document.createElement('canvas');
+const imgCtx = imgCanvas.getContext('2d', {willReadFrequently:true});
+function updateImageControls(){
+  for(const [key,id] of [['imageScale','imageScaleVal'],['imageX','imageXVal'],['imageY','imageYVal'],['imageThreshold','imageThresholdVal']]){
+    $(id).textContent=$(key).value;
+  }
+  const length=Number($('length').value)||75;
+  const tape=Number($('tape').value)||24;
+  $('imageScale').max=Math.min(300,Math.max(2,length));
+  $('imageX').max=Math.min(300,Math.max(0,length));
+  $('imageY').max=tape;
+}
+function paintImage(ppm){
+  if(!labelImage || !$('useImage').checked)return;
+  const srcW=labelImage.naturalWidth,srcH=labelImage.naturalHeight;
+  const maxSide=1400, downscale=Math.min(1,maxSide/Math.max(srcW,srcH));
+  imgCanvas.width=Math.max(1,Math.round(srcW*downscale));
+  imgCanvas.height=Math.max(1,Math.round(srcH*downscale));
+  imgCtx.clearRect(0,0,imgCanvas.width,imgCanvas.height);
+  imgCtx.drawImage(labelImage,0,0,imgCanvas.width,imgCanvas.height);
+  const data=imgCtx.getImageData(0,0,imgCanvas.width,imgCanvas.height);
+  const threshold=Number($('imageThreshold').value);
+  const invert=$('imageInvert').checked;
+  for(let i=0;i<data.data.length;i+=4){
+    // Composite transparent pixels onto white to avoid black artifacts.
+    const alpha=data.data[i+3]/255;
+    const gray=0.299*(data.data[i]*alpha+255*(1-alpha))
+              +0.587*(data.data[i+1]*alpha+255*(1-alpha))
+              +0.114*(data.data[i+2]*alpha+255*(1-alpha));
+    let v=gray>=threshold?255:0;
+    if(invert)v=255-v;
+    data.data[i]=data.data[i+1]=data.data[i+2]=v;
+    data.data[i+3]=255;
+  }
+  imgCtx.putImageData(data,0,0);
+  const width=Math.max(1,Number($('imageScale').value)*ppm);
+  const height=width*srcH/srcW;
+  const x=Number($('imageX').value)*ppm,y=Number($('imageY').value)*ppm;
+  const rotation=Number($('imageRotation').value)*Math.PI/180;
+  ctx.save();
+  ctx.translate(x+width/2,y+height/2);
+  ctx.rotate(rotation);
+  ctx.drawImage(imgCanvas,-width/2,-height/2,width,height);
+  ctx.restore();
+}
 function draw(){
   $('feedPadVal').textContent=$('feedPad').value;
   $('fontVal').textContent=$('font').value;
+  updateImageControls();
   const tape=Number($('tape').value),height=heights[tape];
   const length=Math.max(25,Math.min(300,Number($('length').value)||75));
   const ppm=180/25.4;
   canvas.width=Math.round(length*ppm);canvas.height=height;
   ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,height);
+  paintImage(ppm);
   ctx.fillStyle='#000';
   const l=Number($('marginLeft').value),r=Number($('marginRight').value);
   const t=Number($('marginTop').value),b=Number($('marginBottom').value);
@@ -108,6 +169,39 @@ $('fontFamily').addEventListener('change',async()=>{
     $('fontStatus').textContent='글꼴을 불러오지 못했습니다. 대체 글꼴로 표시될 수 있습니다.';
   }
   draw();
+});
+// The image is decoded entirely in this browser. No USB service change required.
+for(const id of ['useImage','imageScale','imageX','imageY','imageRotation','imageThreshold','imageInvert']){
+  $(id).addEventListener('input',draw);
+  $(id).addEventListener('change',draw);
+}
+$('imageFile').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];
+  if(!file)return;
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size>8*1024*1024){
+    $('imageStatus').textContent='PNG/JPG/WebP 형식의 8MB 이하 이미지를 선택하세요.';
+    event.target.value='';
+    return;
+  }
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  try{
+    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
+    if(!img.naturalWidth || !img.naturalHeight || img.naturalWidth*img.naturalHeight>25000000){
+      throw Error('이미지 크기가 너무 큽니다.');
+    }
+    labelImage=img;
+    $('useImage').disabled=false;
+    $('useImage').checked=true;
+    $('imageStatus').textContent=file.name+' · '+img.naturalWidth+' × '+img.naturalHeight+' px';
+    draw();
+  }catch(err){
+    $('imageStatus').textContent='이미지를 불러오지 못했습니다: '+err.message;
+  }finally{URL.revokeObjectURL(url);}
+});
+$('clearImage').addEventListener('click',()=>{
+  labelImage=null;$('imageFile').value='';$('useImage').checked=false;$('useImage').disabled=true;
+  $('imageStatus').textContent='이미지가 제거되었습니다.';draw();
 });
 draw();
 if(document.fonts){document.fonts.ready.then(draw);}
