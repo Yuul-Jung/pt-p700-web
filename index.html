@@ -34,10 +34,10 @@
 cd pt-p700-web
 bash install-ubuntu.sh
 bash enable-autostart.sh</pre>
-<p class="note">설치 및 자동 시작 등록은 최초 한 번만 필요합니다. 이후 Ubuntu 로그인 시 로컬 서버가 실행됩니다. 이 페이지는 프린터 USB를 직접 열지 않고 Ubuntu 로컬 서버를 통해 출력합니다.</p>
+<p class="note">Ubuntu 시스템에 대한 최초 설치 및 프로그램 업데이트는 사용자 승인과 OS 권한이 필요합니다. 웹에서 직접 설치하지는 못합니다. 설치 및 자동 시작 등록은 최초 한 번만 필요합니다. 이후 Ubuntu 로그인 시 로컬 서버가 실행됩니다. 이 페이지는 프린터 USB를 직접 열지 않고 Ubuntu 로컬 서버를 통해 출력합니다.</p>
 <button type="button" id="checkusb" class="secondary">USB · 인쇄 서버 연결 확인</button>
 <button type="button" id="testprint" class="secondary">테스트 라벨 인쇄</button>
-<p id="usbstatus" role="status" style="white-space:pre-wrap" aria-live="polite">연결 상태: 아직 확인하지 않음</p>
+<p id="usbstatus" role="status" style="white-space:pre-wrap" aria-live="polite">연결 상태: 확인 준비 중</p>
 <p class="note">USB 인식 상태와 실제 인쇄 가능 여부는 다를 수 있습니다. 테스트 인쇄는 테이프를 소비합니다. 브라우저 설정에 따라 로컬 서버 접근이 차단될 수 있습니다.</p>
 </section></main>
 <script>
@@ -77,5 +77,6 @@ $('print').onclick=async()=>{const s=$('status');s.textContent='Ubuntu 로컬 �
 
 async function checkConnection(){const el=$('usbstatus');el.textContent='연결 상태를 확인하고 있습니다...';try{const r=await fetch('http://127.0.0.1:8765/status',{cache:'no-store'});const j=await r.json();el.textContent=r.ok?(j.usb_detected?'USB: Brother 장치 감지됨':'USB: Brother 장치 미감지')+'\n인쇄 도구: '+(j.ptouch_print_installed?'설치됨':'미설치')+'\n로컬 서버: 연결됨':'상태 확인 실패';return r.ok&&j.usb_detected&&j.ptouch_print_installed}catch(e){el.textContent='로컬 서버에 연결할 수 없습니다. Ubuntu에서 bridge.py 실행 여부와 브라우저 로컬 네트워크 권한을 확인하세요.';return false}}
 $('checkusb').onclick=checkConnection;
+window.addEventListener('load',()=>{checkConnection();});
 $('testprint').onclick=async()=>{if(!confirm('테스트 라벨을 실제 출력합니다. 계속할까요?'))return;const el=$('usbstatus');if(!await checkConnection())return;const prev=$('labeltext').value;$('labeltext').value='PT-P700 USB TEST';draw();try{await $('print').onclick();el.textContent+='\n테스트 라벨 인쇄 요청 완료 (결과는 아래 인쇄 상태 참고)'}finally{$('labeltext').value=prev;draw()}};
 </script></body></html>
