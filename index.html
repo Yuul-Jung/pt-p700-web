@@ -308,7 +308,8 @@ $('print').onclick=async()=>{
     const hj=await health.json();
     if(!health.ok || !hj.ok)throw Error('로컬 인쇄 서버 상태 확인 실패 (HTTP '+health.status+')');
     if(!hj.ptouch_print_installed)throw Error('ptouch-print 인쇄 도구가 설치되어 있지 않습니다.');
-    if(!hj.usb_detected)throw Error('PT-P700 USB 장치 미감지: 전원·케이블·Editor Lite 표시등을 확인하세요.');
+    // USB status can be stale or limited; let the actual print command report device errors.
+    if(!hj.usb_detected)status.textContent='USB 미감지 표시 — 실제 인쇄 명령으로 재확인 중...';
     draw();
     const png=canvas.toDataURL('image/png');
     const payload=JSON.stringify({
