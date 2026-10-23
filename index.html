@@ -35,7 +35,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <section class="card"><h2>라벨 · 글자 설정</h2><div class="form-grid">
 <div class="field full"><label for="labeltext">라벨 내용</label><textarea id="labeltext" rows="2">FPGA · Basys3</textarea></div>
 <div class="field"><label for="tape">테이프 폭</label><select id="tape"><option value="6">6 mm</option><option value="9">9 mm</option><option value="12">12 mm</option><option value="18">18 mm</option><option value="24" selected>24 mm</option></select></div>
-<div class="field"><label for="length">라벨 길이: <output id="lengthVal">75</output> mm</label><input id="lengthRange" type="range" min="25" max="300" step="1" value="75" aria-label="라벨 길이 슬라이더"><input id="length" type="number" min="25" max="300" step="1" value="75" aria-label="라벨 길이 직접 입력 (mm)"></div>
+<div class="field"><label for="length">라벨 길이: <output id="lengthVal">75</output> mm</label><input id="length" type="range" min="25" max="300" step="1" value="75" aria-label="라벨 길이 조절"></div>
 <div class="field"><label for="fontFamily">글꼴 선택 (한글·영문)</label><select id="fontFamily">
 <option value="sans-serif">기본 고딕</option><option value="serif">명조</option><option value="monospace">고정폭</option>
 <option value="Arial, sans-serif">Arial (에어리얼)</option>
@@ -45,7 +45,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <option value="Nanum Gothic, sans-serif">나눔고딕</option>
 <option value="Nanum Myeongjo, serif">나눔명조</option>
 </select><span class="font-hint" id="fontStatus" role="status">선택한 글꼴이 미리보기에 적용됩니다.</span></div>
-<div class="field"><label for="font">글자 크기: <output id="fontVal">32</output> px</label><input id="font" type="range" min="12" max="70" value="32"></div><div class="field"><label for="fitMode">자동 크기 맞춤</label><select id="fitMode"><option value="auto" selected>각 줄 자동 맞춤</option><option value="manual">수동</option></select></div>
+<div class="field"><label for="fitMode">자동 크기 맞춤</label><select id="fitMode"><option value="auto" selected>각 줄 자동 맞춤</option><option value="manual">수동</option></select></div>
 <div class="field"><label for="line1Size">1행 글자: <output id="line1SizeVal">42</output> px</label><input id="line1Size" type="range" min="6" max="80" value="42"></div>
 <div class="field"><label for="line1Width">1행 장평: <output id="line1WidthVal">100</output>%</label><input id="line1Width" type="range" min="50" max="150" value="100"></div>
 <div class="field"><label for="line2Size">2행 글자: <output id="line2SizeVal">27</output> px</label><input id="line2Size" type="range" min="6" max="80" value="27"></div>
@@ -136,20 +136,9 @@ function paintImage(ppm, placement=null){
   ctx.drawImage(imgCanvas,-width/2,-height/2,width,height);
   ctx.restore();
 }
-function syncLength(source){
-  const input=$('length'), slider=$('lengthRange');
-  const raw=source==='range'?Number(slider.value):Number(input.value);
-  if(!Number.isFinite(raw)||raw<=0)return;
-  const value=Math.max(25,Math.min(300,Math.round(raw)));
-  input.value=value;slider.value=value;$('lengthVal').textContent=value;
-  draw();
-}
-$('lengthRange').addEventListener('input',()=>syncLength('range'));
-$('length').addEventListener('change',()=>syncLength('number'));
 function draw(){
   $('feedPadVal').textContent=$('feedPad').value;
   $('lengthVal').textContent=Math.max(25,Math.min(300,Number($('length').value)||75));
-  $('fontVal').textContent=$('font').value;
   for(const id of ['line1Size','line1Width','line2Size','line2Width']) $(id+'Val').textContent=$(id).value;
   updateImageControls();
   const tape=Number($('tape').value),height=heights[tape];
@@ -212,7 +201,7 @@ function draw(){
   ctx.restore();
   $('fitStatus').textContent=statuses.length?statuses.join(' · '):'각 줄이 라벨 폭 안에 배치되었습니다.';
 }
-['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad','fitMode','line1Size','line1Width','line2Size','line2Width'].forEach(id=>$(id).addEventListener('input',draw));
+['labeltext','tape','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText','feedPad','fitMode','line1Size','line1Width','line2Size','line2Width'].forEach(id=>$(id).addEventListener('input',draw));
 $('fontFamily').addEventListener('change',async()=>{
   const family=$('fontFamily').value;
   $('fontStatus').textContent='글꼴 적용 중...';
@@ -308,7 +297,41 @@ $('applyOcr').addEventListener('click',()=>{
 draw();
 if(document.fonts){document.fonts.ready.then(draw);}
 $('save').onclick=()=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='pt-p700-label.png';a.click()};
-$('print').onclick=async()=>{const s=$('status');s.textContent='Ubuntu 로컬 인쇄 서버에 연결 중...';try{const r=await fetch('http://127.0.0.1:8765/print',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tape_width_mm:Number($('tape').value),png:canvas.toDataURL('image/png'),cut_mode:$('cutMode').value,feed_pad_mm:Number($('feedPad').value)})});const j=await r.json();s.textContent=j.ok?'인쇄 명령을 전송했습니다.':'인쇄 실패: '+(j.error||r.status)}catch(e){s.textContent='로컬 인쇄 서버 연결 실패: '+e.message+' (Ubuntu에서 bridge.py 실행 여부 확인)'}};
+$('print').onclick=async()=>{
+  const status=$('status'),button=$('print');
+  if(button.disabled)return;
+  button.disabled=true;
+  status.textContent='인쇄 준비 및 장치 확인 중...';
+  try{
+    // Check local bridge status before submitting the rendered label.
+    const health=await fetch('http://127.0.0.1:8765/status',{cache:'no-store'});
+    const hj=await health.json();
+    if(!health.ok || !hj.ok)throw Error('로컬 인쇄 서버 상태 확인 실패 (HTTP '+health.status+')');
+    if(!hj.ptouch_print_installed)throw Error('ptouch-print 인쇄 도구가 설치되어 있지 않습니다.');
+    if(!hj.usb_detected)throw Error('PT-P700 USB 장치 미감지: 전원·케이블·Editor Lite 표시등을 확인하세요.');
+    draw();
+    const png=canvas.toDataURL('image/png');
+    const payload=JSON.stringify({
+      tape_width_mm:Number($('tape').value),png,
+      cut_mode:$('cutMode').value,feed_pad_mm:Number($('feedPad').value)
+    });
+    if(new Blob([payload]).size>2000000)throw Error('인쇄 이미지 데이터가 2MB를 초과했습니다. 이미지 크기를 줄여주세요.');
+    status.textContent='PT-P700으로 인쇄 명령 전송 중...';
+    const response=await fetch('http://127.0.0.1:8765/print',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:payload
+    });
+    const raw=await response.text();
+    let result;
+    try{result=JSON.parse(raw);}catch(_){throw Error('인쇄 서버의 응답을 해석할 수 없습니다. HTTP '+response.status);}
+    if(!response.ok || !result.ok){
+      throw Error('HTTP '+response.status+' · '+(result.error||'프린터 명령 실패'));
+    }
+    status.textContent='인쇄 완료 명령을 정상 처리했습니다.';
+  }catch(err){
+    status.textContent='인쇄 실패: '+err.message+
+      (err instanceof TypeError?' · Ubuntu 로컬 서버 연결 또는 브라우저 접근 권한을 확인하세요.':'');
+  }finally{button.disabled=false;checkConnection();}
+};
 
 async function checkConnection(){const el=$('usbstatus');el.textContent='연결 상태를 확인하고 있습니다...';try{const r=await fetch('http://127.0.0.1:8765/status',{cache:'no-store'});const j=await r.json();el.textContent=r.ok?(j.usb_detected?'USB: Brother PT-P700 연결 확인':'USB 장치 미감지 — PT-P700 전원·USB 케이블·PLite 표시등을 확인한 뒤 [연결 다시 확인]을 누르세요. 이전에 인쇄가 성공했다면 드라이버 재설치는 필요하지 않습니다.')+'\n인쇄 도구: '+(j.ptouch_print_installed?'설치됨':'미설치')+'\n로컬 서버: 연결됨':'상태 확인 실패';return r.ok&&j.usb_detected&&j.ptouch_print_installed}catch(e){el.textContent='로컬 서버에 연결할 수 없습니다. Ubuntu에서 bridge.py 실행 여부와 브라우저 로컬 네트워크 권한을 확인하세요.';return false}}
 $('checkusb').onclick=checkConnection;
