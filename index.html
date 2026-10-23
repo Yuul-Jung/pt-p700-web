@@ -9,11 +9,29 @@
 <label for="bold">굵게 표시</label><input id="bold" type="checkbox" checked style="width:auto"></section>
 <section class="card"><h2>미리보기</h2><canvas id="preview" width="512" height="128"></canvas><p class="note">열전사 인쇄용 흑백 이미지 미리보기입니다. 실제 출력 방향 및 여백은 프린터에서 검증해야 합니다.</p>
 <button id="save">PNG 저장</button><button id="print">PT-P700 인쇄</button><p id="status" role="status"></p></section>
-<section class="card"><h2>연결 방식</h2><p>GitHub Pages는 편집 화면을 제공하고, Ubuntu에서는 <code>bridge.py</code>를 실행해 로컬 USB 프린터로 출력합니다.</p><p class="note">인쇄 전 Ubuntu에서 ptouch-print 설치 및 프린터 인식이 필요합니다. 로컬 서버는 127.0.0.1:8765에서만 실행하세요.</p></section></main>
+<section class="card"><h2>USB 연결 · Ubuntu 설정</h2>
+<p>Brother PT-P700 프린터를 Ubuntu PC의 USB 포트에 연결하고 전원을 켜세요. 프린터의 Editor Lite(PLite) 표시등은 끄세요.</p>
+<ol><li><a href="https://github.com/Yuul-Jung/pt-p700-web" target="_blank" rel="noopener">GitHub 프로젝트</a>를 Ubuntu PC에 다운로드합니다.</li>
+<li><a href="https://github.com/Yuul-Jung/pt-p700-web/blob/main/install-ubuntu.sh" target="_blank" rel="noopener">설치 스크립트</a>를 이용해 인쇄 프로그램과 USB 접근 규칙을 설정합니다.</li>
+<li>터미널에서 아래 명령을 실행하여 인쇄 서버를 시작합니다.</li></ol>
+<pre style="white-space:pre-wrap;background:#eef2f7;padding:15px;border-radius:8px">git clone https://github.com/Yuul-Jung/pt-p700-web.git
+cd pt-p700-web
+bash install-ubuntu.sh
+.venv/bin/python bridge.py</pre>
+<p class="note">설치 명령은 최초 한 번만 필요합니다. 인쇄할 때는 마지막 명령으로 로컬 서버를 실행하세요. 이 페이지는 프린터 USB를 직접 열지 않고 Ubuntu 로컬 서버를 통해 출력합니다.</p>
+<button type="button" id="checkusb" class="secondary">USB · 인쇄 서버 연결 확인</button>
+<button type="button" id="testprint" class="secondary">테스트 라벨 인쇄</button>
+<p id="usbstatus" role="status" style="white-space:pre-wrap" aria-live="polite">연결 상태: 아직 확인하지 않음</p>
+<p class="note">USB 인식 상태와 실제 인쇄 가능 여부는 다를 수 있습니다. 테스트 인쇄는 테이프를 소비합니다. 브라우저 설정에 따라 로컬 서버 접근이 차단될 수 있습니다.</p>
+</section></main>
 <script>
 const $=id=>document.getElementById(id), heights={6:32,9:48,12:70,18:112,24:128},canvas=$('preview'),ctx=canvas.getContext('2d');
 function draw(){const width=Number($('tape').value),height=heights[width],length=Math.max(25,Math.min(300,Number($('length').value)||75));canvas.width=Math.round(length*180/25.4);canvas.height=height;ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,height);ctx.fillStyle='#000';const size=Math.min(Number($('font').value),Math.max(12,height-8));ctx.font=( $('bold').checked?'bold ':'')+size+'px sans-serif';ctx.textBaseline='middle';const lines=$('labeltext').value.split('\n').slice(0,4);const lineHeight=Math.min(size+3,height/lines.length);lines.forEach((line,i)=>ctx.fillText(line,8,height/2+(i-(lines.length-1)/2)*lineHeight,canvas.width-16))}
 ['labeltext','tape','font','length','bold'].forEach(id=>$(id).addEventListener('input',draw));draw();
 $('save').onclick=()=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='pt-p700-label.png';a.click()};
 $('print').onclick=async()=>{const s=$('status');s.textContent='Ubuntu 로컬 인쇄 서버에 연결 중...';try{const r=await fetch('http://127.0.0.1:8765/print',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tape_width_mm:Number($('tape').value),png:canvas.toDataURL('image/png')})});const j=await r.json();s.textContent=j.ok?'인쇄 명령을 전송했습니다.':'인쇄 실패: '+(j.error||r.status)}catch(e){s.textContent='로컬 인쇄 서버 연결 실패: '+e.message+' (Ubuntu에서 bridge.py 실행 여부 확인)'}};
+
+async function checkConnection(){const el=$('usbstatus');el.textContent='연결 상태를 확인하고 있습니다...';try{const r=await fetch('http://127.0.0.1:8765/status',{cache:'no-store'});const j=await r.json();el.textContent=r.ok?(j.usb_detected?'USB: Brother 장치 감지됨':'USB: Brother 장치 미감지')+'\n인쇄 도구: '+(j.ptouch_print_installed?'설치됨':'미설치')+'\n로컬 서버: 연결됨':'상태 확인 실패';return r.ok&&j.usb_detected&&j.ptouch_print_installed}catch(e){el.textContent='로컬 서버에 연결할 수 없습니다. Ubuntu에서 bridge.py 실행 여부와 브라우저 로컬 네트워크 권한을 확인하세요.';return false}}
+$('checkusb').onclick=checkConnection;
+$('testprint').onclick=async()=>{if(!confirm('테스트 라벨을 실제 출력합니다. 계속할까요?'))return;const el=$('usbstatus');if(!await checkConnection())return;const prev=$('labeltext').value;$('labeltext').value='PT-P700 USB TEST';draw();try{await $('print').onclick();el.textContent+='\n테스트 라벨 인쇄 요청 완료 (결과는 아래 인쇄 상태 참고)'}finally{$('labeltext').value=prev;draw()}};
 </script></body></html>
