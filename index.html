@@ -35,7 +35,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <section class="card"><h2>라벨 · 글자 설정</h2><div class="form-grid">
 <div class="field full"><label for="labeltext">라벨 내용</label><textarea id="labeltext" rows="2">FPGA · Basys3</textarea></div>
 <div class="field"><label for="tape">테이프 폭</label><select id="tape"><option value="6">6 mm</option><option value="9">9 mm</option><option value="12">12 mm</option><option value="18">18 mm</option><option value="24" selected>24 mm</option></select></div>
-<div class="field"><label for="length">라벨 길이 (mm)</label><input id="length" type="number" min="25" max="300" value="75"></div>
+<div class="field"><label for="length">라벨 길이: <output id="lengthVal">75</output> mm</label><input id="lengthRange" type="range" min="25" max="300" step="1" value="75" aria-label="라벨 길이 슬라이더"><input id="length" type="number" min="25" max="300" step="1" value="75" aria-label="라벨 길이 직접 입력 (mm)"></div>
 <div class="field"><label for="fontFamily">글꼴 선택 (한글·영문)</label><select id="fontFamily">
 <option value="sans-serif">기본 고딕</option><option value="serif">명조</option><option value="monospace">고정폭</option>
 <option value="Arial, sans-serif">Arial (에어리얼)</option>
@@ -136,8 +136,19 @@ function paintImage(ppm, placement=null){
   ctx.drawImage(imgCanvas,-width/2,-height/2,width,height);
   ctx.restore();
 }
+function syncLength(source){
+  const input=$('length'), slider=$('lengthRange');
+  const raw=source==='range'?Number(slider.value):Number(input.value);
+  if(!Number.isFinite(raw)||raw<=0)return;
+  const value=Math.max(25,Math.min(300,Math.round(raw)));
+  input.value=value;slider.value=value;$('lengthVal').textContent=value;
+  draw();
+}
+$('lengthRange').addEventListener('input',()=>syncLength('range'));
+$('length').addEventListener('change',()=>syncLength('number'));
 function draw(){
   $('feedPadVal').textContent=$('feedPad').value;
+  $('lengthVal').textContent=Math.max(25,Math.min(300,Number($('length').value)||75));
   $('fontVal').textContent=$('font').value;
   for(const id of ['line1Size','line1Width','line2Size','line2Width']) $(id+'Val').textContent=$(id).value;
   updateImageControls();
