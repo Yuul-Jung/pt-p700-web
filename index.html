@@ -59,9 +59,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 <div class="field check"><label for="bold">굵게 표시</label><input id="bold" type="checkbox" checked></div>
 </div></section>
 <section class="card"><h2>절단 · 테이프 절약</h2><div class="form-grid">
-<div class="field full"><label for="cutMode">절단 방식</label><select id="cutMode"><option value="normal">기본 출력</option><option value="autocut" selected>선행 빈 테이프 자동 절단</option><option value="chain">연속 인쇄 · 끝 절단 보류</option></select></div>
+<div class="field full"><label for="cutMode">절단 방식</label><select id="cutMode"><option value="normal" selected>기본 출력 · 인쇄 후 절단</option><option value="chain">연속 인쇄 · 끝 절단 보류</option></select></div>
 <div class="field full"><label for="feedPad">추가 빈 테이프: <output id="feedPadVal">0</output> mm</label><input id="feedPad" type="range" min="0" max="10" step="1" value="0"></div>
-<p class="note full">추가 빈 테이프 0mm 권장 · 기계적인 선행 여백은 별도입니다. 연속 인쇄는 최종 절단이 보류될 수 있습니다.</p>
+<p class="note full">기본 출력은 현재 설치된 ptouch-print와 호환됩니다. 선행 빈 테이프 자동 절단(--autocut)은 설치 버전에서 지원되지 않아 제외했습니다. 연속 인쇄는 끝 절단이 보류될 수 있습니다.</p>
 </div><hr style="border:0;border-top:1px solid #e0e6ef;margin:10px 0">
 <div class="minitip">USB 연결 상태</div><p class="status usb-status" id="usbstatus" role="status">연결 상태: 확인 준비 중</p><div class="usb-actions"><button type="button" class="secondary" id="checkusb">연결 다시 확인</button><button type="button" class="secondary" id="testprint">테스트 인쇄</button></div>
 </section>
@@ -314,7 +314,7 @@ $('print').onclick=async()=>{
     const png=canvas.toDataURL('image/png');
     const payload=JSON.stringify({
       tape_width_mm:Number($('tape').value),png,
-      cut_mode:$('cutMode').value,feed_pad_mm:Number($('feedPad').value)
+      cut_mode:$('cutMode').value==='chain'?'chain':'normal',feed_pad_mm:Number($('feedPad').value)
     });
     if(new Blob([payload]).size>2000000)throw Error('인쇄 이미지 데이터가 2MB를 초과했습니다. 이미지 크기를 줄여주세요.');
     status.textContent='PT-P700으로 인쇄 명령 전송 중...';
