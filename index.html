@@ -26,7 +26,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 @media(max-width:850px){.settings{grid-template-columns:1fr}.usb-actions button{flex:0 1 180px}}
 @media(max-width:520px){.form-grid{grid-template-columns:1fr}.usb-actions button{flex:1 1 125px}.actions{flex:1 1 auto}.preview-image canvas{max-width:100%}}
 </style></head><body>
-<header><h1>Brother PT-P700 · Web Label Studio</h1><p>라벨 편집 · USB 직접 인쇄</p></header>
+<header><h1>Brother PT-P700 · Web Label Studio</h1><p>Ubuntu Linux(우분투 리눅스) 전용 USB 연결 버전 · 웹 라벨 편집기</p></header>
 <main>
 <section class="card preview-sticky" aria-label="라벨 미리보기"><h2>실시간 미리보기</h2><div class="preview-row">
 <div class="preview-image"><canvas id="preview" width="512" height="128"></canvas><p class="note">라벨 내용 및 문자 여백 미리보기 · 프린터 기구적 절단 여백은 별도</p></div>
@@ -60,7 +60,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div><hr style="border:0;border-top:1px solid #e0e6ef;margin:10px 0">
 <div class="minitip">USB 연결 상태</div><p class="status usb-status" id="usbstatus" role="status">연결 상태: 확인 준비 중</p><div class="usb-actions"><button type="button" class="secondary" id="checkusb">연결 다시 확인</button><button type="button" class="secondary" id="testprint">테스트 인쇄</button></div>
 </section></div>
-<details class="card setup"><summary>최초 설치 및 Ubuntu USB 설정 안내 (필요한 경우에만 펼치기)</summary><div class="setup-content"><p>최초 설치 시 PT-P700 USB 연결 및 PLite 표시등 OFF를 확인하세요.</p><pre>git clone https://github.com/Yuul-Jung/pt-p700-web.git
+<details class="card setup"><summary>Ubuntu Linux 전용 · 최초 USB 설치 안내 (필요한 경우에만 펼치기)</summary><div class="setup-content"><p>최초 설치 시 PT-P700 USB 연결 및 PLite 표시등 OFF를 확인하세요.</p><pre>git clone https://github.com/Yuul-Jung/pt-p700-web.git
 cd pt-p700-web
 bash install-ubuntu.sh
 bash enable-autostart.sh</pre><p>설치 및 로그인 자동 실행 등록 후에는 일반 인쇄에 터미널이 필요하지 않습니다. USB 드라이버의 설치와 서버 프로그램 변경은 웹페이지만으로 수행할 수 없습니다.</p></div></details>
