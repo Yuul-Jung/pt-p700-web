@@ -6,8 +6,14 @@
 <label for="tape">테이프 폭</label><select id="tape"><option value="6">6 mm</option><option value="9">9 mm</option><option value="12">12 mm</option><option value="18">18 mm</option><option value="24" selected>24 mm</option></select>
 <label for="font">글자 크기</label><input id="font" type="range" min="12" max="70" value="32">
 <label for="length">라벨 길이 (mm)</label><input id="length" type="number" min="25" max="300" value="75">
+<label for="marginLeft">왼쪽 여백 (mm): <output id="marginLeftVal">2</output></label><input id="marginLeft" type="range" min="0" max="20" step="0.5" value="2">
+<label for="marginRight">오른쪽 여백 (mm): <output id="marginRightVal">2</output></label><input id="marginRight" type="range" min="0" max="20" step="0.5" value="2">
+<label for="marginTop">위쪽 여백 (mm): <output id="marginTopVal">1</output></label><input id="marginTop" type="range" min="0" max="6" step="0.5" value="1">
+<label for="marginBottom">아래쪽 여백 (mm): <output id="marginBottomVal">1</output></label><input id="marginBottom" type="range" min="0" max="6" step="0.5" value="1">
+<label for="alignText">문자 정렬</label><select id="alignText"><option value="left">왼쪽</option><option value="center" selected>가운데</option><option value="right">오른쪽</option></select>
+<p class="note">좌우 여백은 문자 위치를 조절합니다. 프린터 절단 전후에 생기는 물리적 테이프 여백은 별도입니다.</p>
 <label for="bold">굵게 표시</label><input id="bold" type="checkbox" checked style="width:auto"></section>
-<section class="card"><h2>미리보기</h2><canvas id="preview" width="512" height="128"></canvas><p class="note">열전사 인쇄용 흑백 이미지 미리보기입니다. 실제 출력 방향 및 여백은 프린터에서 검증해야 합니다.</p>
+<section class="card"><h2>미리보기</h2><canvas id="preview" width="512" height="128"></canvas><p class="note">열전사 인쇄용 흑백 이미지 미리보기입니다. 문자 배치 여백은 위 조절값을 반영합니다. 실제 절단 전후 여백은 프린터에서 별도 검증해야 합니다.</p>
 <button id="save">PNG 저장</button><button id="print">PT-P700 인쇄</button><p id="status" role="status"></p></section>
 <section class="card"><h2>USB 연결 · Ubuntu 설정</h2>
 <p>Brother PT-P700 프린터를 Ubuntu PC의 USB 포트에 연결하고 전원을 켜세요. 프린터의 Editor Lite(PLite) 표시등은 끄세요.</p>
@@ -26,8 +32,35 @@ bash enable-autostart.sh</pre>
 </section></main>
 <script>
 const $=id=>document.getElementById(id), heights={6:32,9:48,12:70,18:112,24:128},canvas=$('preview'),ctx=canvas.getContext('2d');
-function draw(){const width=Number($('tape').value),height=heights[width],length=Math.max(25,Math.min(300,Number($('length').value)||75));canvas.width=Math.round(length*180/25.4);canvas.height=height;ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,height);ctx.fillStyle='#000';const size=Math.min(Number($('font').value),Math.max(12,height-8));ctx.font=( $('bold').checked?'bold ':'')+size+'px sans-serif';ctx.textBaseline='middle';const lines=$('labeltext').value.split('\n').slice(0,4);const lineHeight=Math.min(size+3,height/lines.length);lines.forEach((line,i)=>ctx.fillText(line,8,height/2+(i-(lines.length-1)/2)*lineHeight,canvas.width-16))}
-['labeltext','tape','font','length','bold'].forEach(id=>$(id).addEventListener('input',draw));draw();
+function draw(){
+  const tape=Number($('tape').value),height=heights[tape];
+  const length=Math.max(25,Math.min(300,Number($('length').value)||75));
+  const ppm=180/25.4;
+  canvas.width=Math.round(length*ppm);canvas.height=height;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,height);
+  ctx.fillStyle='#000';
+  const l=Number($('marginLeft').value),r=Number($('marginRight').value);
+  const t=Number($('marginTop').value),b=Number($('marginBottom').value);
+  for(const key of ['marginLeft','marginRight','marginTop','marginBottom']) $(key+'Val').textContent=$(key).value;
+  const ml=Math.round(l*ppm),mr=Math.round(r*ppm);
+  const mt=Math.round(t*ppm),mb=Math.round(b*ppm);
+  const left=Math.min(canvas.width,ml),right=Math.max(left,canvas.width-mr);
+  const top=Math.min(height,mt),bottom=Math.max(top,height-mb);
+  const usableW=Math.max(0,right-left),usableH=Math.max(0,bottom-top);
+  const lines=$('labeltext').value.split('\n').slice(0,4);
+  const fontSize=Math.min(Number($('font').value),Math.max(1,Math.floor(usableH/lines.length)-3));
+  const lineH=usableH/lines.length;
+  ctx.font=($('bold').checked?'bold ':'')+fontSize+'px sans-serif';
+  ctx.textBaseline='middle';
+  const align=$('alignText').value;
+  ctx.textAlign=align;
+  ctx.save();ctx.beginPath();ctx.rect(left,top,usableW,usableH);ctx.clip();
+  let x=align==='center'?(left+right)/2:align==='right'?right:left;
+  lines.forEach((line,i)=>ctx.fillText(line,x,top+(i+0.5)*lineH,Math.max(1,usableW)));
+  ctx.restore();
+}
+['labeltext','tape','font','length','bold','marginLeft','marginRight','marginTop','marginBottom','alignText'].forEach(id=>$(id).addEventListener('input',draw));
+draw();
 $('save').onclick=()=>{const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='pt-p700-label.png';a.click()};
 $('print').onclick=async()=>{const s=$('status');s.textContent='Ubuntu 로컬 인쇄 서버에 연결 중...';try{const r=await fetch('http://127.0.0.1:8765/print',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tape_width_mm:Number($('tape').value),png:canvas.toDataURL('image/png')})});const j=await r.json();s.textContent=j.ok?'인쇄 명령을 전송했습니다.':'인쇄 실패: '+(j.error||r.status)}catch(e){s.textContent='로컬 인쇄 서버 연결 실패: '+e.message+' (Ubuntu에서 bridge.py 실행 여부 확인)'}};
 
