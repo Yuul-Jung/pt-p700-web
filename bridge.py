@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -24,7 +25,7 @@ class Handler(BaseHTTPRequestHandler):
         if origin in ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Cache-Control", "no-store")
@@ -34,6 +35,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def allowed(self):
         return self.headers.get("Origin") in ORIGINS
+
+    def do_GET(self):
+        if self.path != "/status" or not self.allowed():
+            return self.reply(403, {"ok": False, "error": "Not authorized"})
+        usb = False
+        try:
+            for dev in Path("/sys/bus/usb/devices").iterdir():
+                vendor = dev / "idVendor"
+                product = dev / "idProduct"
+                if vendor.exists() and product.exists():
+                    if vendor.read_text().strip().lower() == "04f9" and product.read_text().strip().lower() == "2061":
+                        usb = True
+                        break
+        except OSError:
+            pass
+        self.reply(200, {"ok": True, "usb_detected": usb, "ptouch_print_installed": shutil.which("ptouch-print") is not None})
 
     def do_OPTIONS(self):
         if not self.allowed():
