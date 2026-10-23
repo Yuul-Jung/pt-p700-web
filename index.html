@@ -79,6 +79,20 @@ main{padding:0 7px}
 .actions button{flex:1}
 .field.full{grid-column:1/-1}
 }
+
+/* Viewport-height alignment: preserve the existing three-column widths. */
+@media(min-width:1201px){
+  html{min-height:100%}
+  body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+  body>header{flex:none}
+  main{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;margin-top:8px;margin-bottom:0;padding-bottom:9px}
+  .preview-sticky{flex:none}
+  .settings{flex:1;min-height:0;align-items:stretch;grid-template-rows:minmax(min-content,1fr)}
+  .settings>.card{min-height:100%;height:auto;display:flex;flex-direction:column}
+  .settings>.card>.form-grid{flex:none}
+  .settings>.card:nth-child(2) .usb-actions{margin-top:auto}
+  .setup{flex:none}
+}
 </style></head><body>
 <header><h1>Brother PT-P700 · Web Label Studio</h1><p>Ubuntu Linux(우분투 리눅스) 전용 USB 연결 버전 · 웹 라벨 편집기</p></header>
 <main>
